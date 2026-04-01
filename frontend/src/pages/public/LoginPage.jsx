@@ -10,6 +10,9 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
+  const googleConfigured =
+    googleClientId.length > 0 && !googleClientId.includes("5344047427-7rvt4s3annao1033bi61276r73iu6fdj.apps.googleusercontent.com");
 
   const redirectTo = location.state?.from || "/dashboard";
 
@@ -32,7 +35,14 @@ export default function LoginPage() {
       <p className="mt-2 text-sm text-slate-600">Use your Google account for secure access.</p>
 
       <div className="mt-6">
-        <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => setError("Google login failed.")} />
+        {googleConfigured ? (
+          <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => setError("Google login failed.")} />
+        ) : (
+          <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+            Google OAuth is not configured. Set <code>VITE_GOOGLE_CLIENT_ID</code> in{" "}
+            <code>frontend/.env</code>.
+          </p>
+        )}
       </div>
 
       {info ? <p className="mt-4 rounded-lg bg-brand-100 p-3 text-sm text-brand-900">{info}</p> : null}
