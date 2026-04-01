@@ -18,4 +18,4 @@ COPY . /app/
 
 RUN chmod +x /app/entrypoint.sh
 
-CMD ["/app/entrypoint.sh"]
+CMD ["bash", "/app/entrypoint.sh"]
