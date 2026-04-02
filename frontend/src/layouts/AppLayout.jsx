@@ -4,10 +4,12 @@ import NotificationBell from "../components/NotificationBell";
 import { useAuth } from "../hooks/useAuth";
 
 function navClass({ isActive }) {
-  return `rounded-lg px-3 py-2 text-sm font-semibold transition ${
-    isActive ? "bg-brand-700 text-white" : "text-slate-700 hover:bg-brand-100"
+  return `rounded-lg py-2 border-b-2 border-slate-200 text-sm font-semibold transition ${
+    isActive ? "bg-brand-300 text-white  hover:bg-slate-100" : "text-slate-700 hover:bg-brand-100"
   }`;
 }
+
+
 
 export default function AppLayout() {
   const navigate = useNavigate();
@@ -39,25 +41,29 @@ export default function AppLayout() {
       </header>
 
       <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[240px_1fr]">
-        <aside className="rounded-2xl bg-white p-4 shadow-soft">
+        <aside className="rounded-2xl bg-white p-4 shadow-soft h-[calc(100vh-40px)]">
           <p className="mb-4 text-xs uppercase tracking-wide text-slate-500">{user?.email}</p>
-          <nav className="space-y-2">
+          <nav className="space-y-4 ">
+            {/* <div className="border-b-2 border-slate-200 py-1 hover:bg-slate-100 rounded-lg"> */}
             <NavLink className={navClass} to="/dashboard">
               Dashboard
             </NavLink>
-            <NavLink className={navClass} to="/tasks">
+           <NavLink className={navClass} to="/tasks">
               Tasks
             </NavLink>
             <NavLink className={navClass} to="/tasks/new">
               Create Task
             </NavLink>
-            <NavLink className={navClass} to="/profile">
+             <NavLink className={navClass} to="/profile">
               Profile
             </NavLink>
+            
             {user?.role === "admin" ? (
+              <div  className="border-b-2 border-slate-200 py-1 hover:bg-slate-100 rounded-lg">
               <NavLink className={navClass} to="/admin">
                 Admin
               </NavLink>
+              </div>
             ) : null}
           </nav>
         </aside>
