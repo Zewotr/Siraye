@@ -11,7 +11,7 @@ export default function PublicLayout() {
           to="/login"
           className="rounded-full bg-brand-700 px-4 py-2 text-sm font-semibold text-white"
         >
-          Sign in
+          Log in
         </Link>
       </header>
       <main className="mx-auto w-full max-w-6xl px-5 pb-12">
