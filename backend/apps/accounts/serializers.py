@@ -34,6 +34,10 @@ class GoogleAuthSerializer(serializers.Serializer):
     id_token = serializers.CharField(required=True)
 
 
+class EmailAuthSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField()
 
