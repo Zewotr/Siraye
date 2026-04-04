@@ -1,6 +1,6 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchCurrentUser, loginWithGoogle, logout as logoutRequest } from "../api/auth";
+import { fetchCurrentUser, loginWithEmail, loginWithGoogle, logout as logoutRequest } from "../api/auth";
 import { clearTokens, getRefreshToken, setTokens } from "../utils/tokenStorage";
 
 export const AuthContext = createContext(null);
@@ -25,8 +25,15 @@ export function AuthProvider({ children }) {
     loadUser();
   }, [loadUser]);
 
-  const login = useCallback(async (googleCredential) => {
+  const loginWithGoogleCredential = useCallback(async (googleCredential) => {
     const response = await loginWithGoogle(googleCredential);
+    setTokens({ access: response.access, refresh: response.refresh });
+    setUser(response.user);
+    return response;
+  }, []);
+
+  const loginWithEmailAddress = useCallback(async (email) => {
+    const response = await loginWithEmail(email);
     setTokens({ access: response.access, refresh: response.refresh });
     setUser(response.user);
     return response;
@@ -52,11 +59,12 @@ export function AuthProvider({ children }) {
       loading,
       isAuthenticated: Boolean(user),
       isAdmin: user?.role === "admin",
-      login,
+      loginWithGoogle: loginWithGoogleCredential,
+      loginWithEmail: loginWithEmailAddress,
       logout,
       refreshUser: loadUser,
     }),
-    [user, loading, login, logout, loadUser]
+    [user, loading, loginWithGoogleCredential, loginWithEmailAddress, logout, loadUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
