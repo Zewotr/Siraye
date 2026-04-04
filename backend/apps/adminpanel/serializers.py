@@ -6,6 +6,7 @@ from apps.monitoring.models import BackupRecord, SecurityLog
 
 class AdminUserSerializer(serializers.ModelSerializer):
     task_count = serializers.IntegerField(read_only=True)
+    has_usable_password = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -19,7 +20,11 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "email_verified",
             "created_at",
             "task_count",
+            "has_usable_password",
         ]
+
+    def get_has_usable_password(self, obj):
+        return obj.has_usable_password()
 
 
 class AdminUserUpdateSerializer(serializers.ModelSerializer):
