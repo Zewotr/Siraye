@@ -10,6 +10,7 @@ from apps.common.permissions import IsActiveAndNotBanned
 
 from .models import EmailVerification, User
 from .serializers import (
+    EmailAuthSerializer,
     GoogleAuthSerializer,
     LogoutSerializer,
     ProfileUpdateSerializer,
@@ -19,6 +20,65 @@ from .serializers import (
 )
 from .services import issue_verification, log_failed_login, verify_google_id_token
 from apps.monitoring.models import SecurityLog
+
+
+class EmailAuthView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
+
+    def post(self, request):
+        serializer = EmailAuthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"].lower()
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            log_failed_login(
+                ip_address=request.META.get("REMOTE_ADDR", ""),
+                path=request.path,
+                metadata={"reason": "email_not_registered", "email": email},
+            )
+            return Response(
+                {"detail": "No account found. Create account with Google below."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.is_active:
+            return Response(
+                {"detail": "This account is inactive."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if user.is_banned:
+            SecurityLog.objects.create(
+                user=user,
+                event_type=SecurityLog.EventType.FORBIDDEN,
+                ip_address=request.META.get("REMOTE_ADDR", ""),
+                path=request.path,
+                method=request.method,
+                metadata={"reason": "banned_login_attempt"},
+            )
+            return Response(
+                {"detail": "Your account has been suspended."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not user.email_verified:
+            issue_verification(user)
+
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "requires_email_verification": not user.email_verified,
+                "user": UserSerializer(user).data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class GoogleAuthView(APIView):
