@@ -5,6 +5,11 @@ export async function loginWithGoogle(idToken) {
   return data;
 }
 
+export async function loginWithEmail(email) {
+  const { data } = await api.post("/auth/email-login", { email });
+  return data;
+}
+
 export async function logout(refreshToken) {
   await api.post("/auth/logout", { refresh: refreshToken });
 }
