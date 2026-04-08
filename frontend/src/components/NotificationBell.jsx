@@ -2,15 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getNotifications, markAllRead } from "../api/notifications";
+import { useAuth } from "../hooks/useAuth";
 import { formatDateTime } from "../utils/format";
 
 export default function NotificationBell() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const notifiedRef = useRef(new Set());
 
   const { data } = useQuery({
-    queryKey: ["notifications"],
+    queryKey: ["notifications", user?.id],
     queryFn: getNotifications,
     refetchInterval: 30000,
   });
@@ -30,13 +32,17 @@ export default function NotificationBell() {
     });
   }, [unread]);
 
+  useEffect(() => {
+    notifiedRef.current.clear();
+  }, [user?.id]);
+
   const markReadMutation = useMutation({
     mutationFn: markAllRead,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
   return (
-    <div className="relative">
+    <div className="relative z-[1200]">
       <button
         className="relative rounded-full border border-brand-200 bg-white px-3 py-2 text-sm text-brand-700"
         onClick={() => setOpen((current) => !current)}
@@ -51,7 +57,7 @@ export default function NotificationBell() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-20 mt-2 w-96 rounded-2xl border border-brand-100 bg-white p-4 shadow-soft">
+        <div className="absolute right-0 z-50 mt-2 w-96 rounded-2xl border border-brand-100 bg-white p-4 shadow-soft">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="font-heading text-lg">Alerts</h3>
             <button
