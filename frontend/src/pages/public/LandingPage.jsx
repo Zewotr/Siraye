@@ -28,7 +28,7 @@ export default function LandingPage() {
       <section className="rounded-3xl bg-slate-800 p-8 text-white shadow-soft">
         <h2 className="font-heading text-2xl">What you get</h2>
         <ul className="mt-4 space-y-3 text-sm text-slate-200">
-          <li>Google OAuth with JWT + email verification</li>
+          <li>Google OAuth with JWT authentication</li>
           <li>Priority-based scheduling and reminder notifications</li>
           <li>Admin analytics, security logs, and storage insights</li>
           <li>Automated daily backups and cloud asset storage</li>

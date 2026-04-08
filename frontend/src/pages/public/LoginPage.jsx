@@ -7,7 +7,6 @@ import { useAuth } from "../../hooks/useAuth";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const { loginWithEmail, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -25,12 +24,8 @@ export default function LoginPage() {
 
     try {
       setError("");
-      setInfo("");
       setIsSubmittingEmail(true);
-      const response = await loginWithEmail(email.trim());
-      if (response.requires_email_verification) {
-        setInfo("Check your inbox to verify email before full access.");
-      }
+      await loginWithEmail(email.trim());
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || "No account found. Create account with Google below.");
@@ -42,11 +37,7 @@ export default function LoginPage() {
   async function handleGoogleSuccess(credentialResponse) {
     try {
       setError("");
-      setInfo("");
-      const response = await loginWithGoogle(credentialResponse.credential);
-      if (response.requires_email_verification) {
-        setInfo("Check your inbox to verify email before full access.");
-      }
+      await loginWithGoogle(credentialResponse.credential);
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || "Login failed.");
@@ -94,7 +85,6 @@ export default function LoginPage() {
         )}
       </div>
 
-      {info ? <p className="mt-4 rounded-lg bg-brand-100 p-3 text-sm text-brand-900">{info}</p> : null}
       {error ? <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
     </div>
   );
