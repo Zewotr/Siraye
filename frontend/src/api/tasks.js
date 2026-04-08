@@ -28,3 +28,8 @@ export async function completeTask(id) {
   const { data } = await api.patch(`/tasks/${id}/complete`);
   return data;
 }
+
+export async function getNextUpcomingTask() {
+  const { data } = await api.get("/tasks/next-upcoming");
+  return data?.task || data;
+}

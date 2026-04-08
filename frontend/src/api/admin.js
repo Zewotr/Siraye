@@ -5,6 +5,11 @@ export async function getAdminUsers(params = {}) {
   return data;
 }
 
+export async function createAdminUser(payload) {
+  const { data } = await api.post("/admin/users", payload);
+  return data;
+}
+
 export async function updateAdminUser(id, payload) {
   const { data } = await api.put(`/admin/users/${id}`, payload);
   return data;
