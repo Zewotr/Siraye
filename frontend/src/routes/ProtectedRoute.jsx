@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import LoadingSpinner from "../components/LoadingSpinner";
+import TaskReminderToaster from "../components/TaskReminderToaster";
 import { useAuth } from "../hooks/useAuth";
 
 export default function ProtectedRoute() {
@@ -15,5 +16,10 @@ export default function ProtectedRoute() {
     return <Navigate to="/login" state={{ from: location.pathname }} />;
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <TaskReminderToaster />
+      <Outlet />
+    </>
+  );
 }

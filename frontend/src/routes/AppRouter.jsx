@@ -11,7 +11,6 @@ import StorageMonitoringPage from "../pages/admin/StorageMonitoringPage";
 import UserManagementPage from "../pages/admin/UserManagementPage";
 import LandingPage from "../pages/public/LandingPage";
 import LoginPage from "../pages/public/LoginPage";
-import VerifyEmailPage from "../pages/public/VerifyEmailPage";
 import DashboardPage from "../pages/user/DashboardPage";
 import ProfilePage from "../pages/user/ProfilePage";
 import TaskFormPage from "../pages/user/TaskFormPage";
@@ -26,7 +25,6 @@ export default function AppRouter() {
       <Route element={<PublicLayout />}>
         <Route element={<LandingPage />} path="/" />
         <Route element={<LoginPage />} path="/login" />
-        <Route element={<VerifyEmailPage />} path="/verify-email" />
       </Route>
 
       <Route element={<ProtectedRoute />}>
