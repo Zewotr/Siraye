@@ -4,7 +4,6 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.accounts.permissions import IsEmailVerified
 from apps.common.permissions import IsActiveAndNotBanned
 from apps.notifications.models import Notification
 
@@ -14,7 +13,7 @@ from .serializers import TaskSerializer
 
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAuthenticated, IsActiveAndNotBanned, IsEmailVerified]
+    permission_classes = [permissions.IsAuthenticated, IsActiveAndNotBanned]
 
     def get_queryset(self):
         priority_order = Case(
@@ -47,5 +46,22 @@ class TaskViewSet(viewsets.ModelViewSet):
             notification_type=Notification.NotificationType.TASK_COMPLETED,
             message=f"Task '{task.title}' marked as completed.",
         )
+
+        return Response(TaskSerializer(task).data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], url_path="next-upcoming")
+    def next_upcoming(self, request):
+        task = (
+            Task.objects.filter(
+                user=request.user,
+                status__in=[Task.Status.PENDING, Task.Status.IN_PROGRESS],
+                start_time__gte=timezone.now(),
+            )
+            .order_by("start_time", "created_at")
+            .first()
+        )
+
+        if not task:
+            return Response({"task": None}, status=status.HTTP_200_OK)
 
         return Response(TaskSerializer(task).data, status=status.HTTP_200_OK)
