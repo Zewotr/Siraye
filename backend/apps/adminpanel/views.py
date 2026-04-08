@@ -6,7 +6,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
-from apps.accounts.permissions import IsEmailVerified
 from apps.common.permissions import IsAdminRole
 from apps.monitoring.models import AdminLog, BackupRecord, SecurityLog, SystemMetric
 from apps.monitoring.services import storage_summary
@@ -14,6 +13,7 @@ from apps.monitoring.tasks import backup_database
 from apps.tasks.models import Task
 
 from .serializers import (
+    AdminCreateSerializer,
     AdminUserSerializer,
     AdminUserUpdateSerializer,
     BackupRecordSerializer,
@@ -21,16 +21,34 @@ from .serializers import (
 )
 
 
-class AdminUserListView(generics.ListAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole, IsEmailVerified]
-    serializer_class = AdminUserSerializer
+class AdminUserListView(generics.ListCreateAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
 
     def get_queryset(self):
         return User.objects.annotate(task_count=Count("tasks")).order_by("-created_at")
 
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return AdminCreateSerializer
+        return AdminUserSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        AdminLog.objects.create(
+            admin=request.user,
+            action="admin_created",
+            target_user=user,
+            metadata={
+                "access_level": "super_admin" if user.is_superuser else "admin",
+            },
+        )
+        return Response(AdminUserSerializer(user).data, status=status.HTTP_201_CREATED)
+
 
 class AdminUserDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole, IsEmailVerified]
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
 
     def put(self, request, id):
         user = get_object_or_404(User, pk=id)
@@ -54,7 +72,7 @@ class AdminUserDetailView(APIView):
 
 
 class AdminUserBanView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole, IsEmailVerified]
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
 
     def patch(self, request, id):
         user = get_object_or_404(User, pk=id)
@@ -65,7 +83,7 @@ class AdminUserBanView(APIView):
 
 
 class AdminUserUnbanView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole, IsEmailVerified]
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
 
     def patch(self, request, id):
         user = get_object_or_404(User, pk=id)
@@ -76,7 +94,7 @@ class AdminUserUnbanView(APIView):
 
 
 class AdminSecurityLogListView(generics.ListAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole, IsEmailVerified]
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
     serializer_class = SecurityLogSerializer
 
     def get_queryset(self):
@@ -84,7 +102,7 @@ class AdminSecurityLogListView(generics.ListAPIView):
 
 
 class AdminSystemStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole, IsEmailVerified]
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
 
     def get(self, request):
         today = timezone.now().date()
@@ -108,14 +126,14 @@ class AdminSystemStatsView(APIView):
 
 
 class AdminStorageView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole, IsEmailVerified]
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
 
     def get(self, request):
         return Response(storage_summary())
 
 
 class AdminBackupView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole, IsEmailVerified]
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
 
     def get(self, request):
         backups = BackupRecord.objects.all()[:50]
