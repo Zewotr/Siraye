@@ -1,7 +1,6 @@
-from django.utils import timezone
 from rest_framework import serializers
 
-from .models import EmailVerification, User
+from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -15,7 +14,6 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "is_active",
             "is_banned",
-            "email_verified",
             "created_at",
             "last_login",
         ]
@@ -24,7 +22,6 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "is_active",
             "is_banned",
-            "email_verified",
             "created_at",
             "last_login",
         ]
@@ -40,29 +37,6 @@ class EmailAuthSerializer(serializers.Serializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField()
-
-
-class VerifyEmailSerializer(serializers.Serializer):
-    token = serializers.UUIDField()
-
-    def validate_token(self, value):
-        try:
-            verification = EmailVerification.objects.select_related("user").get(
-                verification_token=value,
-                is_used=False,
-            )
-        except EmailVerification.DoesNotExist as exc:
-            raise serializers.ValidationError("Invalid or already used verification token.") from exc
-
-        if verification.verification_expiry < timezone.now():
-            raise serializers.ValidationError("Verification token has expired.")
-
-        self.context["verification"] = verification
-        return value
-
-
-class ResendVerificationSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=False)
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):

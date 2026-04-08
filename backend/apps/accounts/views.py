@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -8,17 +7,15 @@ from rest_framework.views import APIView
 
 from apps.common.permissions import IsActiveAndNotBanned
 
-from .models import EmailVerification, User
+from .models import User
 from .serializers import (
     EmailAuthSerializer,
     GoogleAuthSerializer,
     LogoutSerializer,
     ProfileUpdateSerializer,
-    ResendVerificationSerializer,
     UserSerializer,
-    VerifyEmailSerializer,
 )
-from .services import issue_verification, log_failed_login, verify_google_id_token
+from .services import log_failed_login, verify_google_id_token
 from apps.monitoring.models import SecurityLog
 
 
@@ -66,15 +63,11 @@ class EmailAuthView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if not user.email_verified:
-            issue_verification(user)
-
         refresh = RefreshToken.for_user(user)
         return Response(
             {
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
-                "requires_email_verification": not user.email_verified,
                 "user": UserSerializer(user).data,
             },
             status=status.HTTP_200_OK,
@@ -110,7 +103,6 @@ class GoogleAuthView(APIView):
                 defaults={
                     "name": name,
                     "profile_picture": picture,
-                    "email_verified": False,
                 },
             )
 
@@ -139,16 +131,12 @@ class GoogleAuthView(APIView):
                 if updates:
                     user.save(update_fields=updates)
 
-            if created or not user.email_verified:
-                issue_verification(user)
-
             refresh = RefreshToken.for_user(user)
 
         return Response(
             {
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
-                "requires_email_verification": not user.email_verified,
                 "user": UserSerializer(user).data,
             },
             status=status.HTTP_200_OK,
@@ -176,41 +164,6 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
-
-
-class VerifyEmailView(APIView):
-    permission_classes = [permissions.AllowAny]
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "verify_email"
-
-    def post(self, request):
-        serializer = VerifyEmailSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-
-        verification = serializer.context["verification"]
-        verification.mark_used()
-        user = verification.user
-        user.email_verified = True
-        user.save(update_fields=["email_verified"])
-
-        return Response({"detail": "Email verified successfully."}, status=status.HTTP_200_OK)
-
-
-class ResendVerificationView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsActiveAndNotBanned]
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "resend_email"
-
-    def post(self, request):
-        serializer = ResendVerificationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        user = request.user
-        if user.email_verified:
-            return Response({"detail": "Email is already verified."}, status=status.HTTP_200_OK)
-
-        issue_verification(user)
-        return Response({"detail": "Verification email sent."}, status=status.HTTP_200_OK)
 
 
 class ProfileView(APIView):
