@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
-import { resendVerification } from "../../api/auth";
 import { deleteProfile, getProfile, updateProfile } from "../../api/profile";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
@@ -10,24 +9,36 @@ import { formatDate } from "../../utils/format";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { logout, refreshUser } = useAuth();
-  const { data, isLoading, refetch } = useQuery({ queryKey: ["profile"], queryFn: getProfile });
+  const { logout, refreshUser, user } = useAuth();
+  const { data, error, isError, isLoading, refetch } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: getProfile,
+  });
   const [name, setName] = useState("");
   const [imageFile, setImageFile] = useState(null);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("success");
+
+  useEffect(() => {
+    if (data?.name) {
+      setName(data.name);
+    }
+  }, [data?.name]);
 
   const updateMutation = useMutation({
     mutationFn: updateProfile,
+    onMutate: () => setMessage(""),
     onSuccess: async () => {
       await refetch();
       await refreshUser();
-      setMessage("Profile updated.");
+      setImageFile(null);
+      setMessageType("success");
+      setMessage("Profile updated successfully.");
     },
-  });
-
-  const resendMutation = useMutation({
-    mutationFn: resendVerification,
-    onSuccess: (response) => setMessage(response.detail || "Verification email sent."),
+    onError: (updateError) => {
+      setMessageType("error");
+      setMessage(updateError.response?.data?.detail || "Failed to update profile.");
+    },
   });
 
   const deleteMutation = useMutation({
@@ -36,18 +47,41 @@ export default function ProfilePage() {
       await logout();
       navigate("/login");
     },
+    onError: (deleteError) => {
+      setMessageType("error");
+      setMessage(deleteError.response?.data?.detail || "Failed to delete account.");
+    },
   });
 
   if (isLoading) return <LoadingSpinner label="Loading profile" />;
+  if (isError) {
+    return (
+      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+        <p className="text-sm text-rose-700">{error?.response?.data?.detail || "Failed to load profile."}</p>
+      </div>
+    );
+  }
 
   async function handleUpdate(event) {
     event.preventDefault();
+    const trimmedName = name.trim();
+    if (trimmedName === data.name && !imageFile) {
+      setMessageType("info");
+      setMessage("No changes to update.");
+      return;
+    }
     const payload = new FormData();
-    payload.append("name", name || data.name);
+    payload.append("name", trimmedName || data.name);
     if (imageFile) {
       payload.append("profile_image_file", imageFile);
     }
     updateMutation.mutate(payload);
+  }
+
+  function handleDeleteAccount() {
+    const confirmed = window.confirm("Are you sure to delete your account? This action cannot be undone.");
+    if (!confirmed) return;
+    deleteMutation.mutate();
   }
 
   return (
@@ -74,9 +108,9 @@ export default function ProfilePage() {
             </label>
             <input
               className="w-full rounded-xl border border-slate-200 px-3 py-2"
-              defaultValue={data.name}
               id="name"
               onChange={(event) => setName(event.target.value)}
+              value={name}
             />
           </div>
 
@@ -92,35 +126,40 @@ export default function ProfilePage() {
             />
           </div>
 
-          <button className="rounded-full bg-brand-700 px-5 py-2 font-semibold text-white" type="submit">
-            Save profile
+          <button
+            className="rounded-full bg-brand-700 px-5 py-2 font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={updateMutation.isPending}
+            type="submit"
+          >
+            {updateMutation.isPending ? "Updating..." : "Update profile"}
           </button>
         </form>
 
-        {!data.email_verified ? (
-          <div className="mt-5 rounded-xl bg-amber-50 p-4">
-            <p className="text-sm text-amber-800">Email not verified yet. Verify to unlock all features.</p>
-            <button
-              className="mt-2 rounded-full bg-amber-500 px-3 py-1 text-sm font-semibold text-white"
-              onClick={() => resendMutation.mutate()}
-              type="button"
-            >
-              Resend verification email
-            </button>
-          </div>
-        ) : null}
-
         <div className="mt-6 border-t border-slate-100 pt-4">
           <button
-            className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => deleteMutation.mutate()}
+            className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={deleteMutation.isPending}
+            onClick={handleDeleteAccount}
             type="button"
           >
-            Delete account
+            {deleteMutation.isPending ? "Deleting..." : "Delete account"}
           </button>
         </div>
 
-        {message ? <p className="mt-4 text-sm text-brand-700">{message}</p> : null}
+        {message ? (
+          <p
+            aria-live="polite"
+            className={`mt-4 text-sm ${
+              messageType === "error"
+                ? "text-rose-700"
+                : messageType === "info"
+                  ? "text-slate-600"
+                  : "text-brand-700"
+            }`}
+          >
+            {message}
+          </p>
+        ) : null}
       </article>
     </div>
   );

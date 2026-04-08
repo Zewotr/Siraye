@@ -4,12 +4,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { completeTask, deleteTask, getTasks } from "../../api/tasks";
 import EmptyState from "../../components/EmptyState";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import { useAuth } from "../../hooks/useAuth";
 import { formatDateTime } from "../../utils/format";
 
 export default function TaskListPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { data, isLoading } = useQuery({
-    queryKey: ["tasks", "list"],
+    queryKey: ["tasks", "list", user?.id],
     queryFn: getTasks,
   });
 

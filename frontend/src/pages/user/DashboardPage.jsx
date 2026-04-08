@@ -4,11 +4,13 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 
 import LoadingSpinner from "../../components/LoadingSpinner";
 import StatCard from "../../components/StatCard";
+import { useAuth } from "../../hooks/useAuth";
 import { getTasks } from "../../api/tasks";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const { data, isLoading } = useQuery({
-    queryKey: ["tasks", "dashboard"],
+    queryKey: ["tasks", "dashboard", user?.id],
     queryFn: () => getTasks({ page_size: 200 }),
   });
 

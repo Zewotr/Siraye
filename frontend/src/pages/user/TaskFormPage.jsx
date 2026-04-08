@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { createTask, getTask, updateTask } from "../../api/tasks";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import { useAuth } from "../../hooks/useAuth";
 
 const initialState = {
   title: "",
@@ -19,10 +20,11 @@ export default function TaskFormPage() {
   const editing = Boolean(id);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [form, setForm] = useState(initialState);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["task", id],
+    queryKey: ["task", id, user?.id],
     queryFn: () => getTask(id),
     enabled: editing,
   });
