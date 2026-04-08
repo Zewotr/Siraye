@@ -128,8 +128,6 @@ REST_FRAMEWORK = {
         "anon": env("THROTTLE_ANON", "30/min"),
         "user": env("THROTTLE_USER", "100/min"),
         "login": env("THROTTLE_LOGIN", "5/min"),
-        "verify_email": env("THROTTLE_VERIFY_EMAIL", "10/hour"),
-        "resend_email": env("THROTTLE_RESEND_EMAIL", "5/hour"),
     },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": int(env("API_PAGE_SIZE", "20")),
