@@ -7,7 +7,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.tasks.models import Task
+from apps.tasks.models import Task, TaskStatus
 
 from .models import BackupRecord, SystemMetric
 from .services import storage_summary, upload_binary_backup
@@ -23,7 +23,7 @@ def collect_system_metrics():
         active_users=User.objects.filter(is_active=True, is_banned=False).count(),
         tasks_created=Task.objects.count(),
         tasks_completed_today=Task.objects.filter(
-            status=Task.Status.COMPLETED,
+            status__category=TaskStatus.Category.DONE,
             completed_at__date=today,
         ).count(),
         system_storage_usage_bytes=summary["total_storage_usage_bytes"],

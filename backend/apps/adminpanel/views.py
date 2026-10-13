@@ -10,7 +10,7 @@ from apps.common.permissions import IsAdminRole
 from apps.monitoring.models import AdminLog, BackupRecord, SecurityLog, SystemMetric
 from apps.monitoring.services import storage_summary
 from apps.monitoring.tasks import backup_database
-from apps.tasks.models import Task
+from apps.tasks.models import Task, TaskStatus
 
 from .serializers import (
     AdminCreateSerializer,
@@ -25,7 +25,7 @@ class AdminUserListView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminRole]
 
     def get_queryset(self):
-        return User.objects.annotate(task_count=Count("tasks")).order_by("-created_at")
+        return User.objects.annotate(task_count=Count("created_tasks")).order_by("-created_at")
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -113,7 +113,7 @@ class AdminSystemStatsView(APIView):
             "active_users": User.objects.filter(is_active=True, is_banned=False).count(),
             "tasks_created": Task.objects.count(),
             "tasks_completed_today": Task.objects.filter(
-                status=Task.Status.COMPLETED,
+            status__category=TaskStatus.Category.DONE,
                 completed_at__date=today,
             ).count(),
             "system_storage_usage_bytes": latest_metric.system_storage_usage_bytes if latest_metric else 0,

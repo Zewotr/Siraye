@@ -28,7 +28,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
         return obj.has_usable_password()
 
     def get_task_count(self, obj):
-        return getattr(obj, "task_count", obj.tasks.count())
+        return getattr(obj, "task_count", obj.created_tasks.count())
 
     def get_access_level(self, obj):
         return "super_admin" if obj.is_superuser else "admin"

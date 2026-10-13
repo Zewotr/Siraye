@@ -3,19 +3,22 @@
 @tailwind utilities;
 
 :root {
-  color: #0f172a;
-  background-color: #f6f8fa;
+  color: #1e1b4b;
+  background-color: #f8f9fc;
+  font-synthesis: none;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   font-family: theme("fontFamily.body");
-  background:
-    radial-gradient(1200px circle at -5% -15%, rgba(15, 23, 42, 0.07), transparent 55%),
-    radial-gradient(900px circle at 110% -20%, rgba(100, 116, 139, 0.11), transparent 50%),
-    linear-gradient(180deg, #fbfcfd 0%, #f3f4f6 100%);
+  background: #f8f9fc;
   background-attachment: fixed;
+}
+
+.dark body {
+  color: #f8fafc;
+  background: #10111a;
 }
 
 h1,
@@ -29,4 +32,63 @@ h6 {
 
 #root {
   min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(99, 91, 255, 0.2);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #635bff;
+  outline-offset: 2px;
+}
+
+.scrollbar-subtle::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.28);
+}
+
+.animate-enter {
+  animation: enter 180ms ease-out both;
+}
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: 160% 0; }
+  to { background-position: -80% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(100deg, rgba(226,232,240,.65) 30%, rgba(255,255,255,.95) 50%, rgba(226,232,240,.65) 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.dark .skeleton {
+  background: linear-gradient(100deg, rgba(51,65,85,.75) 30%, rgba(71,85,105,.85) 50%, rgba(51,65,85,.75) 70%);
+  background-size: 200% 100%;
 }
