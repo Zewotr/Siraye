@@ -16,7 +16,7 @@ export async function createTask(payload) {
 }
 
 export async function updateTask(id, payload) {
-  const { data } = await api.put(`/tasks/${id}`, payload);
+  const { data } = await api.patch(`/tasks/${id}`, payload);
   return data;
 }
 
