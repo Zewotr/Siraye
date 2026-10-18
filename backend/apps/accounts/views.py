@@ -13,13 +13,66 @@ from .serializers import (
     GoogleAuthSerializer,
     LogoutSerializer,
     ProfileUpdateSerializer,
+    RegisterSerializer,
     UserSerializer,
 )
 from .services import log_failed_login, verify_google_id_token
 from apps.monitoring.models import SecurityLog
 
 
+def _issue_tokens(user):
+    """Return JWT access + refresh tokens for a user."""
+    refresh = RefreshToken.for_user(user)
+    return {
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "user": UserSerializer(user).data,
+    }
+
+
+class RegisterView(APIView):
+    """Sign up with name + email + password."""
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        data = serializer.validated_data
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=data["email"],
+                password=data["password"],
+                name=data["name"],
+            )
+
+            # Auto-provision default workspace for user
+            try:
+                from apps.tasks.models import Workspace, WorkspaceMembership
+                from apps.tasks.views import unique_workspace_slug
+
+                workspace_name = f"{user.name}'s Workspace"
+                workspace = Workspace.objects.create(
+                    owner=user,
+                    name=workspace_name,
+                    slug=unique_workspace_slug(f"{user.name}-workspace"),
+                    color="#255a54",
+                )
+                WorkspaceMembership.objects.create(
+                    workspace=workspace,
+                    user=user,
+                    role=WorkspaceMembership.Role.OWNER,
+                )
+            except Exception:
+                pass
+
+        return Response(_issue_tokens(user), status=status.HTTP_201_CREATED)
+
+
 class EmailAuthView(APIView):
+    """Login with name or email + password."""
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
@@ -28,18 +81,28 @@ class EmailAuthView(APIView):
         serializer = EmailAuthSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data["email"].lower()
+        identifier = serializer.validated_data["identifier"]
+        password = serializer.validated_data["password"]
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
+        user = User.objects.filter(email__iexact=identifier).first()
+        if not user:
+            # Check by user's display name
+            candidates = User.objects.filter(name__iexact=identifier)
+            for candidate in candidates:
+                if candidate.check_password(password):
+                    user = candidate
+                    break
+            if not user and candidates.exists():
+                user = candidates.first()
+
+        if not user:
             log_failed_login(
                 ip_address=request.META.get("REMOTE_ADDR", ""),
                 path=request.path,
-                metadata={"reason": "email_not_registered", "email": email},
+                metadata={"reason": "user_not_found", "identifier": identifier},
             )
             return Response(
-                {"detail": "No account found. Create account with Google below."},
+                {"detail": "No account found with this name or email."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -63,15 +126,18 @@ class EmailAuthView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-                "user": UserSerializer(user).data,
-            },
-            status=status.HTTP_200_OK,
-        )
+        if not user.check_password(password):
+            log_failed_login(
+                ip_address=request.META.get("REMOTE_ADDR", ""),
+                path=request.path,
+                metadata={"reason": "wrong_password", "identifier": identifier},
+            )
+            return Response(
+                {"detail": "Incorrect password."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(_issue_tokens(user), status=status.HTTP_200_OK)
 
 
 class GoogleAuthView(APIView):
@@ -130,17 +196,26 @@ class GoogleAuthView(APIView):
                     updates.append("name")
                 if updates:
                     user.save(update_fields=updates)
+            else:
+                try:
+                    from apps.tasks.models import Workspace, WorkspaceMembership
+                    from apps.tasks.views import unique_workspace_slug
 
-            refresh = RefreshToken.for_user(user)
+                    workspace = Workspace.objects.create(
+                        owner=user,
+                        name=f"{user.name}'s Workspace",
+                        slug=unique_workspace_slug(f"{user.name}-workspace"),
+                        color="#255a54",
+                    )
+                    WorkspaceMembership.objects.create(
+                        workspace=workspace,
+                        user=user,
+                        role=WorkspaceMembership.Role.OWNER,
+                    )
+                except Exception:
+                    pass
 
-        return Response(
-            {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-                "user": UserSerializer(user).data,
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response(_issue_tokens(user), status=status.HTTP_200_OK)
 
 
 class LogoutView(APIView):
