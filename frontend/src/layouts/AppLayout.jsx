@@ -1,23 +1,29 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import Avatar from "../components/Avatar";
 import CommandPalette from "../components/CommandPalette";
 import Icon from "../components/Icon";
+import NextTasksSidebar from "../components/NextTasksSidebar";
 import NotificationBell from "../components/NotificationBell";
+import TaskDetailPanel from "../components/TaskDetailPanel";
 import { useAuth } from "../hooks/useAuth";
 import { useWorkspace } from "../hooks/useWorkspace";
 
 const primaryNavigation = [
   { label: "Overview", to: "/dashboard", icon: "grid" },
   { label: "My tasks", to: "/my-tasks", icon: "checkSquare" },
+  { label: "Schedule", to: "/schedule", icon: "calendarCheck" },
   { label: "Calendar", to: "/calendar", icon: "calendar" },
+  { label: "Tracker", to: "/tracker", icon: "trendingUp" },
+  { label: "Timer", to: "/timer", icon: "clock" },
+  { label: "Projects", to: "/projects", icon: "layers" },
 ];
 
 function navClass({ isActive }) {
   return `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
     isActive
-      ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20"
+      ? "bg-brand-700 text-white shadow-lg shadow-brand-700/20"
       : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
   }`;
 }
@@ -27,9 +33,25 @@ export default function AppLayout() {
   const { logout, user } = useAuth();
   const { activeWorkspace, projects, setActiveWorkspace, workspaces } = useWorkspace();
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [nextTasksOpen, setNextTasksOpen] = useState(false);
+  const [detailTaskId, setDetailTaskId] = useState(null);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("siraye:theme") === "dark");
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [userMenuOpen]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -68,7 +90,7 @@ export default function AppLayout() {
       >
         <div className="mb-5 flex items-center justify-between px-2">
           <button className="flex items-center gap-2" onClick={() => navigate("/dashboard")} type="button">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 via-indigo-600 to-violet-700 text-white shadow-lg shadow-violet-500/25">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 via-brand-700 to-brand-800 text-white shadow-lg shadow-brand-700/25">
               <Icon name="sparkles" size={19} />
             </span>
             <span className="font-heading text-xl font-bold tracking-tight">siraye</span>
@@ -80,11 +102,11 @@ export default function AppLayout() {
 
         <div className="relative mb-5 px-1">
           <button
-            className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-left transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-violet-500/40 dark:hover:bg-violet-500/10"
+            className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-left transition hover:border-brand-200 hover:bg-brand-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10"
             onClick={() => setWorkspaceMenuOpen((open) => !open)}
             type="button"
           >
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white" style={{ backgroundColor: activeWorkspace?.color || "#635BFF" }}>
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white" style={{ backgroundColor: activeWorkspace?.color || "#255a54" }}>
               {(activeWorkspace?.name || "S").slice(0, 1).toUpperCase()}
             </span>
             <span className="min-w-0 flex-1">
@@ -98,7 +120,7 @@ export default function AppLayout() {
               {workspaces.map((workspace) => (
                 <button
                   className={`flex w-full items-center gap-2 rounded-lg p-2 text-left text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800 ${
-                    workspace.id === activeWorkspace?.id ? "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300" : "text-slate-600 dark:text-slate-300"
+                    workspace.id === activeWorkspace?.id ? "bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300" : "text-slate-600 dark:text-slate-300"
                   }`}
                   key={workspace.id}
                   onClick={() => {
@@ -117,7 +139,7 @@ export default function AppLayout() {
         </div>
 
         <button
-          className="mb-5 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-500 transition hover:border-violet-200 hover:text-violet-700 dark:border-slate-800 dark:text-slate-400 dark:hover:border-violet-500/40 dark:hover:text-violet-300"
+          className="mb-5 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-500 transition hover:border-brand-200 hover:text-brand-700 dark:border-slate-800 dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
           onClick={() => setPaletteOpen(true)}
           type="button"
         >
@@ -138,14 +160,14 @@ export default function AppLayout() {
         <div className="mt-7 px-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Projects</p>
-            <button className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-violet-600 dark:hover:bg-slate-800" onClick={() => navigate("/projects?new=1")} title="New project" type="button">
+            <button className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" onClick={() => navigate("/projects?new=1")} title="New project" type="button">
               <Icon name="plus" size={15} />
             </button>
           </div>
           <div className="scrollbar-subtle max-h-[calc(100vh-480px)] space-y-1 overflow-y-auto">
             {projects.map((project) => (
               <NavLink
-                className={({ isActive }) => `flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition ${isActive ? "bg-violet-50 font-bold text-violet-700 dark:bg-violet-500/10 dark:text-violet-300" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"}`}
+                className={({ isActive }) => `flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition ${isActive ? "bg-brand-50 font-bold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"}`}
                 key={project.id}
                 onClick={() => setSidebarOpen(false)}
                 to={`/projects/${project.id}`}
@@ -185,17 +207,141 @@ export default function AppLayout() {
             <p className="hidden text-sm font-medium text-slate-400 sm:block">Build momentum, one meaningful task at a time.</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button className="hidden rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-violet-600 dark:hover:bg-slate-800 dark:hover:text-violet-300 sm:inline-flex" onClick={() => setDarkMode((value) => !value)} title="Toggle theme" type="button">
+            <button
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10"
+              onClick={() => setNextTasksOpen(true)}
+              title="Next tasks queue (shows next 3-5 tasks)"
+              type="button"
+            >
+              <Icon name="sidebar" size={16} />
+              <span className="hidden sm:inline">Next tasks</span>
+            </button>
+            <button className="hidden rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-brand-600 dark:hover:bg-slate-800 dark:hover:text-brand-300 sm:inline-flex" onClick={() => setDarkMode((value) => !value)} title="Toggle theme" type="button">
               <Icon name={darkMode ? "sun" : "moon"} size={18} />
             </button>
             <NotificationBell />
-            <button className="hidden rounded-xl bg-violet-600 px-3.5 py-2 text-sm font-bold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 sm:inline-flex sm:items-center sm:gap-1.5" onClick={startTask} type="button">
+            <button className="hidden rounded-xl bg-brand-700 px-3.5 py-2 text-sm font-bold text-white shadow-lg shadow-brand-700/20 transition hover:bg-brand-800 sm:inline-flex sm:items-center sm:gap-1.5" onClick={startTask} type="button">
               <Icon name="plus" size={17} /> New task
             </button>
-            <button className="flex items-center gap-2 rounded-xl p-1.5 transition hover:bg-white dark:hover:bg-slate-800" onClick={() => navigate("/profile")} type="button">
-              <Avatar size="sm" user={user} />
-              <Icon className="hidden text-slate-400 sm:block" name="chevronDown" size={14} />
-            </button>
+            <div className="relative" ref={userMenuRef}>
+              <button
+                className="flex items-center gap-2 rounded-xl p-1.5 transition hover:bg-white dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                onClick={() => setUserMenuOpen((prev) => !prev)}
+                type="button"
+                aria-expanded={userMenuOpen}
+                aria-haspopup="true"
+              >
+                <Avatar size="sm" user={user} />
+                <span className="hidden text-xs font-semibold text-slate-700 dark:text-slate-300 md:inline max-w-[120px] truncate">
+                  {user?.name || user?.username || "Account"}
+                </span>
+                <Icon className={`hidden text-slate-400 transition-transform duration-200 sm:block ${userMenuOpen ? "rotate-180" : ""}`} name="chevronDown" size={14} />
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+                  {/* User Profile Summary */}
+                  <div className="border-b border-slate-100 px-3 py-2.5 dark:border-slate-800/80">
+                    <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
+                      {user?.name || user?.username || "User"}
+                    </p>
+                    <p className="truncate text-xs text-slate-400">{user?.email}</p>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <span className="inline-block rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300 capitalize">
+                        {user?.role || "Member"}
+                      </span>
+                      {activeWorkspace && (
+                        <span className="truncate text-[10px] text-slate-400">
+                          • {activeWorkspace.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Navigation Links */}
+                  <div className="py-1.5 space-y-0.5">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        navigate("/profile");
+                      }}
+                    >
+                      <Icon name="settings" size={15} />
+                      Profile & Settings
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        navigate("/schedule");
+                      }}
+                    >
+                      <Icon name="calendarCheck" size={15} />
+                      Weekly Planner
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        navigate("/tracker");
+                      }}
+                    >
+                      <Icon name="trendingUp" size={15} />
+                      Punctuality Tracker
+                    </button>
+
+                    {user?.role === "admin" && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-purple-600 transition hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/30"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          navigate("/admin");
+                        }}
+                      >
+                        <Icon name="activity" size={15} />
+                        Administration
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-1.5 pb-1 dark:border-slate-800/80">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                      onClick={() => setDarkMode((v) => !v)}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <Icon name={darkMode ? "sun" : "moon"} size={15} />
+                        Theme
+                      </span>
+                      <span className="text-[10px] text-slate-400">{darkMode ? "Dark" : "Light"}</span>
+                    </button>
+                  </div>
+
+                  {/* Prominent Sign Out */}
+                  <div className="border-t border-slate-100 pt-1.5 dark:border-slate-800/80">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        handleLogout();
+                      }}
+                    >
+                      <Icon name="logOut" size={15} />
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
         <section className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-7 sm:py-8">
@@ -203,6 +349,8 @@ export default function AppLayout() {
         </section>
       </main>
       <CommandPalette onClose={() => setPaletteOpen(false)} onCreateTask={startTask} open={paletteOpen} projects={projects} />
+      <NextTasksSidebar onClose={() => setNextTasksOpen(false)} onSelectTaskId={(id) => setDetailTaskId(id)} open={nextTasksOpen} />
+      <TaskDetailPanel onClose={() => setDetailTaskId(null)} taskId={detailTaskId} />
     </div>
   );
 }
