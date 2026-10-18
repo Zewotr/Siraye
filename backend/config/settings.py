@@ -125,9 +125,9 @@ REST_FRAMEWORK = {
         "apps.common.throttles.AuditAnonRateThrottle",
     ),
     "DEFAULT_THROTTLE_RATES": {
-        "anon": env("THROTTLE_ANON", "30/min"),
-        "user": env("THROTTLE_USER", "100/min"),
-        "login": env("THROTTLE_LOGIN", "5/min"),
+        "anon": env("THROTTLE_ANON", "120/min"),
+        "user": env("THROTTLE_USER", "500/min"),
+        "login": env("THROTTLE_LOGIN", "120/min"),
     },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": int(env("API_PAGE_SIZE", "20")),
@@ -151,6 +151,10 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 7 days
+SESSION_SAVE_EVERY_REQUEST = False
 
 EMAIL_BACKEND = env("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = env("EMAIL_HOST", "smtp.sendgrid.net")
