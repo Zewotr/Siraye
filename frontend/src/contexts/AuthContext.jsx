@@ -1,7 +1,13 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { fetchCurrentUser, loginWithEmail, loginWithGoogle, logout as logoutRequest } from "../api/auth";
+import {
+  fetchCurrentUser,
+  loginWithCredentials,
+  loginWithGoogle,
+  logout as logoutRequest,
+  registerWithCredentials,
+} from "../api/auth";
 import { clearTokens, getRefreshToken, setTokens } from "../utils/tokenStorage";
 
 export const AuthContext = createContext(null);
@@ -33,45 +39,53 @@ export function AuthProvider({ children }) {
     loadUser();
   }, [loadUser]);
 
+  /** Store tokens + set user from any auth response. */
+  const _handleAuthResponse = useCallback(
+    async (response) => {
+      await resetSessionData();
+      setTokens({ access: response.access, refresh: response.refresh });
+      setUser(response.user);
+      return response;
+    },
+    [resetSessionData]
+  );
+
   const loginWithGoogleCredential = useCallback(
     async (googleCredential) => {
       const response = await loginWithGoogle(googleCredential);
-      await resetSessionData();
-      setTokens({ access: response.access, refresh: response.refresh });
-      setUser(response.user);
-      return response;
+      return _handleAuthResponse(response);
     },
-    [resetSessionData]
+    [_handleAuthResponse]
   );
 
-  const loginWithEmailAddress = useCallback(
-    async (email) => {
-      const response = await loginWithEmail(email);
-      await resetSessionData();
-      setTokens({ access: response.access, refresh: response.refresh });
-      setUser(response.user);
-      return response;
+  const login = useCallback(
+    async (email, password) => {
+      const response = await loginWithCredentials(email, password);
+      return _handleAuthResponse(response);
     },
-    [resetSessionData]
+    [_handleAuthResponse]
   );
 
-  const logout = useCallback(
-    async () => {
-      try {
-        const refresh = getRefreshToken();
-        if (refresh) {
-          await logoutRequest(refresh);
-        }
-      } catch {
-        // Ignore logout API failures and always clear local session.
-      } finally {
-        await resetSessionData();
-        clearTokens();
-        setUser(null);
-      }
+  const register = useCallback(
+    async (name, email, password, passwordConfirm) => {
+      const response = await registerWithCredentials(name, email, password, passwordConfirm);
+      return _handleAuthResponse(response);
     },
-    [resetSessionData]
+    [_handleAuthResponse]
   );
+
+  const logout = useCallback(async () => {
+    try {
+      const refresh = getRefreshToken();
+      if (refresh) await logoutRequest(refresh);
+    } catch {
+      // Always clear local session even if API fails.
+    } finally {
+      await resetSessionData();
+      clearTokens();
+      setUser(null);
+    }
+  }, [resetSessionData]);
 
   const value = useMemo(
     () => ({
@@ -80,11 +94,12 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(user),
       isAdmin: user?.role === "admin",
       loginWithGoogle: loginWithGoogleCredential,
-      loginWithEmail: loginWithEmailAddress,
+      login,
+      register,
       logout,
       refreshUser: loadUser,
     }),
-    [user, loading, loginWithGoogleCredential, loginWithEmailAddress, logout, loadUser]
+    [user, loading, loginWithGoogleCredential, login, register, logout, loadUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
