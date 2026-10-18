@@ -157,11 +157,13 @@ class TaskActivitySerializer(serializers.ModelSerializer):
 
 
 class TaskSerializer(serializers.ModelSerializer):
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all(), required=False)
     project_name = serializers.CharField(source="project.name", read_only=True)
     workspace_id = serializers.IntegerField(source="project.workspace_id", read_only=True)
     created_by = UserSummarySerializer(read_only=True)
     status = TaskStatusSerializer(read_only=True)
     status_id = serializers.PrimaryKeyRelatedField(source="status", queryset=TaskStatus.objects.all(), write_only=True, required=False)
+    status_key = serializers.CharField(write_only=True, required=False, allow_blank=True)
     assignees = UserSummarySerializer(many=True, read_only=True)
     assignee_ids = serializers.PrimaryKeyRelatedField(
         source="assignees",
@@ -182,6 +184,13 @@ class TaskSerializer(serializers.ModelSerializer):
     checklist_completed = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
 
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        raw_status = data.get("status")
+        if isinstance(raw_status, str) and not ret.get("status"):
+            ret["status_key"] = raw_status
+        return ret
+
     class Meta:
         model = Task
         fields = [
@@ -194,6 +203,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "priority",
             "status",
             "status_id",
+            "status_key",
             "assignees",
             "assignee_ids",
             "labels",
@@ -222,17 +232,89 @@ class TaskSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+
         project = attrs.get("project") or getattr(self.instance, "project", None)
-        status = attrs.get("status") or getattr(self.instance, "status", None)
-        start_time = attrs.get("start_time") if "start_time" in attrs else getattr(self.instance, "start_time", None)
-        end_time = attrs.get("end_time") if "end_time" in attrs else getattr(self.instance, "end_time", None)
+        if not project and user and user.is_authenticated:
+            project_id = (request.data.get("project") if hasattr(request, "data") else None) or (request.query_params.get("project") if hasattr(request, "query_params") else None)
+            if project_id:
+                project = Project.objects.filter(pk=project_id).first()
+            if not project:
+                from .access import visible_projects
+                project = visible_projects(user).first()
+            if not project:
+                from django.utils.text import slugify
+                workspace = Workspace.objects.filter(memberships__user=user).first()
+                if not workspace:
+                    base = slugify(f"{user.name}-workspace")[:120] or "workspace"
+                    slug = base
+                    count = 2
+                    while Workspace.objects.filter(slug=slug).exists():
+                        slug = f"{base}-{count}"
+                        count += 1
+                    workspace = Workspace.objects.create(
+                        owner=user,
+                        name=f"{user.name}'s Workspace",
+                        slug=slug,
+                        color="#255a54",
+                    )
+                    WorkspaceMembership.objects.create(
+                        workspace=workspace,
+                        user=user,
+                        role=WorkspaceMembership.Role.OWNER,
+                    )
+                project = Project.objects.create(
+                    workspace=workspace,
+                    name="General",
+                    key="GEN",
+                    description="Default project for tasks",
+                    color="#255a54",
+                )
+                default_statuses = (
+                    ("backlog", "Backlog", "#94A3B8", TaskStatus.Category.BACKLOG),
+                    ("todo", "Todo", "#60A5FA", TaskStatus.Category.TODO),
+                    ("in-progress", "In Progress", "#A78BFA", TaskStatus.Category.IN_PROGRESS),
+                    ("in-review", "In Review", "#FBBF24", TaskStatus.Category.IN_REVIEW),
+                    ("done", "Done", "#34D399", TaskStatus.Category.DONE),
+                )
+                for position, (key, name, color, category) in enumerate(default_statuses):
+                    TaskStatus.objects.get_or_create(
+                        project=project,
+                        key=key,
+                        defaults={"name": name, "color": color, "category": category, "position": position},
+                    )
+            attrs["project"] = project
 
         if not project:
             raise serializers.ValidationError({"project": "A project is required."})
+
+        status = attrs.get("status") or getattr(self.instance, "status", None)
+        if not status and project:
+            status_key = attrs.get("status_key") or (request.data.get("status") if hasattr(request, "data") else None)
+            if status_key and isinstance(status_key, str):
+                status_key_clean = status_key.lower().replace(" ", "_").replace("-", "_")
+                if status_key_clean in {"done", "completed"}:
+                    status = project.statuses.filter(category=TaskStatus.Category.DONE).first()
+                elif status_key_clean in {"in_progress", "inprogress"}:
+                    status = project.statuses.filter(category=TaskStatus.Category.IN_PROGRESS).first()
+                elif status_key_clean in {"in_review", "review"}:
+                    status = project.statuses.filter(category=TaskStatus.Category.IN_REVIEW).first()
+                elif status_key_clean in {"backlog"}:
+                    status = project.statuses.filter(category=TaskStatus.Category.BACKLOG).first()
+                else:
+                    status = project.statuses.filter(category=TaskStatus.Category.TODO).first()
+            if not status:
+                status = project.statuses.filter(category=TaskStatus.Category.TODO).first() or project.statuses.first()
+            attrs["status"] = status
+
         if not status:
             raise serializers.ValidationError({"status_id": "A status is required."})
         if status.project_id != project.id:
             raise serializers.ValidationError({"status_id": "The status must belong to the selected project."})
+
+        start_time = attrs.get("start_time") if "start_time" in attrs else getattr(self.instance, "start_time", None)
+        end_time = attrs.get("end_time") if "end_time" in attrs else getattr(self.instance, "end_time", None)
         if start_time and end_time and end_time <= start_time:
             raise serializers.ValidationError({"end_time": "End time must be later than start time."})
 
@@ -247,7 +329,17 @@ class TaskSerializer(serializers.ModelSerializer):
             )
             if member_ids != {user.id for user in assignees}:
                 raise serializers.ValidationError({"assignee_ids": "Assignees must be workspace members."})
+
+        attrs.pop("status_key", None)
         return attrs
+
+    def create(self, validated_data):
+        validated_data.pop("status_key", None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("status_key", None)
+        return super().update(instance, validated_data)
 
     def get_checklist_total(self, obj):
         return len(obj.checklist_items.all()) if hasattr(obj, "_prefetched_objects_cache") else obj.checklist_items.count()
