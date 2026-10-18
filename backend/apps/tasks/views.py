@@ -341,21 +341,111 @@ class TaskViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Viewer access does not allow task changes.")
 
     def perform_create(self, serializer):
-        project = serializer.validated_data["project"]
+        user = self.request.user
+        project = serializer.validated_data.get("project")
+        if not project:
+            project_id = self.request.data.get("project") or self.request.query_params.get("project")
+            if project_id:
+                project = Project.objects.filter(pk=project_id).first()
+            if not project:
+                project = visible_projects(user).first()
+            if not project:
+                workspace = Workspace.objects.filter(memberships__user=user).first()
+                if not workspace:
+                    workspace = Workspace.objects.create(
+                        owner=user,
+                        name=f"{user.name}'s Workspace",
+                        slug=unique_workspace_slug(f"{user.name}-workspace"),
+                        color="#255a54",
+                    )
+                    WorkspaceMembership.objects.create(
+                        workspace=workspace,
+                        user=user,
+                        role=WorkspaceMembership.Role.OWNER,
+                    )
+                project = Project.objects.create(
+                    workspace=workspace,
+                    name="General",
+                    key="GEN",
+                    description="Default project for tasks",
+                    color="#255a54",
+                )
+                create_default_statuses(project)
+
         self._ensure_contributor(project)
-        status_obj = serializer.validated_data["status"]
+
+        status_obj = serializer.validated_data.get("status")
+        status_key = serializer.validated_data.get("status_key") or self.request.data.get("status")
+        if not status_obj and status_key and isinstance(status_key, str):
+            status_key_clean = status_key.lower().replace(" ", "_").replace("-", "_")
+            if status_key_clean in {"done", "completed"}:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.DONE).first()
+            elif status_key_clean in {"in_progress", "inprogress"}:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.IN_PROGRESS).first()
+            elif status_key_clean in {"in_review", "review"}:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.IN_REVIEW).first()
+            elif status_key_clean in {"backlog"}:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.BACKLOG).first()
+            else:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.TODO).first()
+
+        if not status_obj:
+            status_obj = project.statuses.filter(category=TaskStatus.Category.TODO).first() or project.statuses.first()
+            if not status_obj:
+                create_default_statuses(project)
+                status_obj = project.statuses.filter(category=TaskStatus.Category.TODO).first() or project.statuses.first()
+
+        due_date = serializer.validated_data.get("due_date")
+        if not due_date:
+            due_date = serializer.validated_data.get("end_time") or serializer.validated_data.get("start_time")
+
         position = serializer.validated_data.get("position")
         if position is None:
             position = (Task.objects.filter(project=project, status=status_obj).aggregate(last=Max("position"))["last"] or -1) + 1
-        task = serializer.save(created_by=self.request.user, position=position)
-        TaskActivity.objects.create(task=task, actor=self.request.user, action=TaskActivity.Action.CREATED)
+
+        completed_at = timezone.now() if (status_obj and status_obj.is_done) else None
+
+        task = serializer.save(
+            project=project,
+            status=status_obj,
+            created_by=user,
+            position=position,
+            due_date=due_date,
+            completed_at=completed_at,
+        )
+        TaskActivity.objects.create(task=task, actor=user, action=TaskActivity.Action.CREATED)
 
     def perform_update(self, serializer):
         task = serializer.instance
         self._ensure_contributor(task)
+        project = task.project
         previous_status_id = task.status_id
         previous_assignee_ids = set(task.assignees.values_list("id", flat=True))
-        updated_task = serializer.save()
+
+        status_obj = serializer.validated_data.get("status")
+        status_key = serializer.validated_data.get("status_key") or self.request.data.get("status")
+        if not status_obj and status_key and isinstance(status_key, str):
+            status_key_clean = status_key.lower().replace(" ", "_").replace("-", "_")
+            if status_key_clean in {"done", "completed"}:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.DONE).first()
+            elif status_key_clean in {"in_progress", "inprogress"}:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.IN_PROGRESS).first()
+            elif status_key_clean in {"in_review", "review"}:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.IN_REVIEW).first()
+            elif status_key_clean in {"backlog"}:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.BACKLOG).first()
+            else:
+                status_obj = project.statuses.filter(category=TaskStatus.Category.TODO).first()
+
+        extra_kwargs = {}
+        if status_obj:
+            extra_kwargs["status"] = status_obj
+
+        due_date = serializer.validated_data.get("due_date")
+        if not due_date and (serializer.validated_data.get("end_time") or serializer.validated_data.get("start_time")):
+            extra_kwargs["due_date"] = serializer.validated_data.get("end_time") or serializer.validated_data.get("start_time")
+
+        updated_task = serializer.save(**extra_kwargs)
         changed = []
         if previous_status_id != updated_task.status_id:
             changed.append("status")
