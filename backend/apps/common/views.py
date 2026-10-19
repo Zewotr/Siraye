@@ -15,6 +15,10 @@ class ApiRootView(APIView):
                     "health": "/api/health",
                     "auth_google": "/api/auth/google",
                     "auth_me": "/api/auth/me",
+                    "workspaces": "/api/workspaces",
+                    "projects": "/api/projects",
+                    "tasks": "/api/tasks",
+                    "my_tasks": "/api/tasks/my-tasks",
                 },
             }
         )

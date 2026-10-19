@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 
 import AppRouter from "./routes/AppRouter";
 import { AuthProvider } from "./contexts/AuthContext";
+import { WorkspaceProvider } from "./contexts/WorkspaceContext";
 import "./styles/index.css";
 
 const queryClient = new QueryClient({
@@ -23,7 +24,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
-            <AppRouter />
+            <WorkspaceProvider>
+              <AppRouter />
+            </WorkspaceProvider>
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
