@@ -1,0 +1,5 @@
+release: python manage.py migrate --noinput
+web: gunicorn config.wsgi:application --log-file -
+worker: celery -A config worker -l info
+beat: celery -A config beat -l info
+
