@@ -14,3 +14,13 @@ export async function getWorkspaceMembers(id) {
   const { data } = await api.get(`/workspaces/${id}/members`);
   return data;
 }
+
+export async function updateWorkspace(id, payload) {
+  const { data } = await api.patch(`/workspaces/${id}`, payload);
+  return data;
+}
+
+export async function deleteWorkspace(id) {
+  await api.delete(`/workspaces/${id}`);
+}
+
