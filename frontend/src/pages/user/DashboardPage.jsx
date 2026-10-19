@@ -114,9 +114,9 @@ export default function DashboardPage() {
     return [
       { name: "Completed", count: stats.completed, fill: "#10b981" },
       { name: "In Progress", count: stats.inProgress, fill: "#f59e0b" },
-      { name: "Pending", count: stats.pending, fill: "#255a54" },
+      { name: "Pending", count: stats.pending, fill: user?.accent_color || activeWorkspace?.color || "#255a54" },
     ];
-  }, [stats]);
+  }, [stats, user?.accent_color, activeWorkspace?.color]);
 
   // Priority distribution
   const priorityData = useMemo(() => {
