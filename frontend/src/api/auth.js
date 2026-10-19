@@ -32,3 +32,9 @@ export async function fetchCurrentUser() {
   const { data } = await api.get("/auth/me");
   return data;
 }
+
+export async function submitOnboarding(payload) {
+  const { data } = await api.post("/accounts/onboarding", payload);
+  return data;
+}
+
