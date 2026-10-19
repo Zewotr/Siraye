@@ -1,3 +1,4 @@
+from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -172,6 +173,12 @@ class GoogleAuthView(APIView):
                 },
             )
 
+            if not user.is_active:
+                return Response(
+                    {"detail": "This account is inactive."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             if user.is_banned:
                 SecurityLog.objects.create(
                     user=user,
@@ -197,6 +204,8 @@ class GoogleAuthView(APIView):
                 if updates:
                     user.save(update_fields=updates)
             else:
+                user.set_unusable_password()
+                user.save(update_fields=["password"])
                 try:
                     from apps.tasks.models import Workspace, WorkspaceMembership
                     from apps.tasks.views import unique_workspace_slug
@@ -250,8 +259,14 @@ class ProfileView(APIView):
     def put(self, request):
         serializer = ProfileUpdateSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(UserSerializer(request.user).data)
+        user = serializer.save()
+        if "accent_color" in serializer.validated_data:
+            try:
+                from apps.tasks.models import Workspace
+                Workspace.objects.filter(owner=user).update(color=serializer.validated_data["accent_color"])
+            except Exception:
+                pass
+        return Response(UserSerializer(user).data)
 
     def delete(self, request):
         user = request.user
@@ -259,3 +274,96 @@ class ProfileView(APIView):
         user.save(update_fields=["is_active"])
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsActiveAndNotBanned]
+
+    def post(self, request):
+        current_password = request.data.get("current_password", "")
+        new_password = request.data.get("new_password", "")
+        confirm_password = request.data.get("confirm_password", "")
+
+        if not current_password or not new_password:
+            return Response(
+                {"detail": "Both current password and new password are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not request.user.check_password(current_password):
+            return Response(
+                {"detail": "Current password is incorrect."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_password != confirm_password:
+            return Response(
+                {"detail": "New passwords do not match."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            validate_password(new_password, user=request.user)
+        except Exception as exc:
+            messages = exc.messages if hasattr(exc, "messages") else [str(exc)]
+            return Response(
+                {"detail": messages[0] if messages else "Invalid password."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        request.user.set_password(new_password)
+        request.user.save()
+        return Response({"detail": "Password successfully updated."}, status=status.HTTP_200_OK)
+
+
+class OnboardingView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsActiveAndNotBanned]
+
+    def post(self, request):
+        from .serializers import OnboardingSerializer
+
+        serializer = OnboardingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        job_type = serializer.validated_data["job_type"]
+        accent_color = serializer.validated_data.get("accent_color", "#255A54")
+        theme = serializer.validated_data.get("theme_preference", "system")
+        primary_goal = serializer.validated_data.get("primary_goal", "")
+
+        user.job_type = job_type
+        user.accent_color = accent_color
+        user.theme_preference = theme
+        user.onboarding_completed = True
+        user.save(update_fields=["job_type", "accent_color", "theme_preference", "onboarding_completed", "updated_at"])
+
+        # Customize user's primary owned workspace with their chosen accent color
+        try:
+            from apps.tasks.models import Workspace
+
+            workspace = Workspace.objects.filter(owner=user).first()
+            if workspace:
+                workspace.color = accent_color
+                workspace.save(update_fields=["color"])
+        except Exception:
+            pass
+
+        # Log analytics
+        SecurityLog.objects.create(
+            user=user,
+            event_type=SecurityLog.EventType.ONBOARDING,
+            ip_address=request.META.get("REMOTE_ADDR", ""),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            path=request.path,
+            method=request.method,
+            metadata={
+                "job_type": job_type,
+                "accent_color": accent_color,
+                "theme_preference": theme,
+                "primary_goal": primary_goal,
+            },
+        )
+
+        return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
+
+
