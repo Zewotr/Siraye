@@ -19,5 +19,14 @@ frontend/dist/
 backend/.env
 frontend/.env
 
+# Celery
+celerybeat-schedule*
+backend/celerybeat-schedule*
+
+# Editor
+.vscode/
+.idea/
+
 # OS
 .DS_Store
+

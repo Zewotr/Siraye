@@ -9,6 +9,7 @@ class SecurityLog(models.Model):
         UNAUTHORIZED = "unauthorized", "Unauthorized Access"
         FORBIDDEN = "forbidden", "Forbidden Access"
         SUSPICIOUS = "suspicious", "Suspicious Activity"
+        ONBOARDING = "onboarding", "Onboarding Completed"
 
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(

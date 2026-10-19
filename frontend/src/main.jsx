@@ -7,7 +7,11 @@ import { BrowserRouter } from "react-router-dom";
 import AppRouter from "./routes/AppRouter";
 import { AuthProvider } from "./contexts/AuthContext";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
+import { initTheme } from "./utils/theme";
 import "./styles/index.css";
+
+initTheme();
+
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -10,7 +10,7 @@ from apps.common.permissions import IsAdminRole
 from apps.monitoring.models import AdminLog, BackupRecord, SecurityLog, SystemMetric
 from apps.monitoring.services import storage_summary
 from apps.monitoring.tasks import backup_database
-from apps.tasks.models import Task, TaskStatus
+from apps.tasks.models import Project, Task, TaskStatus, Workspace
 
 from .serializers import (
     AdminCreateSerializer,
@@ -108,16 +108,101 @@ class AdminSystemStatsView(APIView):
         today = timezone.now().date()
         latest_metric = SystemMetric.objects.first()
 
+        total_users = User.objects.count()
+        active_users = User.objects.filter(is_active=True, is_banned=False).count()
+        total_tasks = Task.objects.count()
+        completed_tasks = Task.objects.filter(status__category=TaskStatus.Category.DONE).count()
+
+        # Job Type / Occupation breakdown
+        job_types_raw = (
+            User.objects.values("job_type")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        job_type_distribution = []
+        for item in job_types_raw:
+            label = item["job_type"].strip() or "General / Unspecified"
+            # Format nicely
+            label_display = label.replace("_", " ").title()
+            job_type_distribution.append({
+                "name": label_display,
+                "count": item["count"],
+                "percentage": round((item["count"] / max(total_users, 1)) * 100, 1),
+            })
+
+        # Theme preferences breakdown
+        theme_raw = (
+            User.objects.values("theme_preference")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        theme_distribution = [
+            {
+                "name": (item["theme_preference"] or "system").capitalize(),
+                "count": item["count"],
+            }
+            for item in theme_raw
+        ]
+
+        # Accent color preferences
+        color_raw = (
+            User.objects.values("accent_color")
+            .annotate(count=Count("id"))
+            .order_by("-count")[:8]
+        )
+        color_distribution = [
+            {
+                "color": item["accent_color"] or "#255A54",
+                "count": item["count"],
+            }
+            for item in color_raw
+        ]
+
+        # Recent users
+        recent_users = [
+            {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "job_type": u.job_type.replace("_", " ").title() if u.job_type else "General User",
+                "role": u.role,
+                "created_at": u.created_at,
+            }
+            for u in User.objects.order_by("-created_at")[:6]
+        ]
+
+        # Recent security audit events
+        recent_security = [
+            {
+                "id": log.id,
+                "event_type": log.event_type,
+                "user_email": log.user.email if log.user else "Anonymous",
+                "ip_address": log.ip_address,
+                "path": log.path,
+                "created_at": log.created_at,
+                "metadata": log.metadata,
+            }
+            for log in SecurityLog.objects.select_related("user").order_by("-created_at")[:6]
+        ]
+
         data = {
-            "total_users": User.objects.count(),
-            "active_users": User.objects.filter(is_active=True, is_banned=False).count(),
-            "tasks_created": Task.objects.count(),
+            "total_users": total_users,
+            "active_users": active_users,
+            "total_workspaces": Workspace.objects.count(),
+            "total_projects": Project.objects.count(),
+            "tasks_created": total_tasks,
+            "total_completed_tasks": completed_tasks,
             "tasks_completed_today": Task.objects.filter(
-            status__category=TaskStatus.Category.DONE,
+                status__category=TaskStatus.Category.DONE,
                 completed_at__date=today,
             ).count(),
             "system_storage_usage_bytes": latest_metric.system_storage_usage_bytes if latest_metric else 0,
             "uploaded_files": latest_metric.uploaded_files if latest_metric else 0,
+            "job_type_distribution": job_type_distribution,
+            "theme_distribution": theme_distribution,
+            "color_distribution": color_distribution,
+            "recent_users": recent_users,
+            "recent_security": recent_security,
             "latest_metrics": {
                 "captured_at": latest_metric.captured_at if latest_metric else None,
             },

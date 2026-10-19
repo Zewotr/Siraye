@@ -137,6 +137,7 @@ export default function UserManagementPage() {
             <tr className="border-b border-slate-100 text-slate-500">
               <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Email</th>
+              <th className="px-3 py-2">Occupation</th>
               <th className="px-3 py-2">Access</th>
               <th className="px-3 py-2">Password</th>
               <th className="px-3 py-2">Join Date</th>
@@ -150,6 +151,11 @@ export default function UserManagementPage() {
               <tr className="border-b border-slate-100" key={user.id}>
                 <td className="px-3 py-3 font-semibold text-slate-900">{user.name}</td>
                 <td className="px-3 py-3 text-slate-700">{user.email}</td>
+                <td className="px-3 py-3">
+                  <span className="rounded-md bg-brand-50 px-2 py-0.5 text-xs font-bold capitalize text-brand-700">
+                    {user.job_type ? user.job_type.replace("_", " ") : "General User"}
+                  </span>
+                </td>
                 <td className="px-3 py-3 text-slate-700">
                   {user.role === "admin" ? (user.access_level === "super_admin" ? "Super Admin" : "Admin") : "-"}
                 </td>
