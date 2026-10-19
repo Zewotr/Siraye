@@ -213,10 +213,10 @@ export default function PomodoroBoard({ customTasks, projectId, initialTaskId })
 
   const modeTheme = {
     focus: {
-      color: "#255a54",
+      color: "var(--brand-hex, #255a54)",
       bgClass: "bg-brand-500/10 text-brand-700 dark:text-brand-300",
       btnClass: "bg-brand-700 hover:bg-brand-800 text-white shadow-brand-700/25",
-      ringColor: "#255a54",
+      ringColor: "var(--brand-hex, #255a54)",
       title: "Focus Time",
     },
     shortBreak: {
