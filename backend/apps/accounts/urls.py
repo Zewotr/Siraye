@@ -1,10 +1,12 @@
 from django.urls import path
 
 from .views import (
+    ChangePasswordView,
     EmailAuthView,
     GoogleAuthView,
     LogoutView,
     MeView,
+    OnboardingView,
     ProfileView,
     RegisterView,
 )
@@ -18,4 +20,7 @@ urlpatterns = [
     path("auth/logout", LogoutView.as_view(), name="auth-logout"),
     path("auth/me", MeView.as_view(), name="auth-me"),
     path("profile", ProfileView.as_view(), name="profile"),
+    path("profile/change-password", ChangePasswordView.as_view(), name="profile-change-password"),
+    path("accounts/onboarding", OnboardingView.as_view(), name="accounts-onboarding"),
+    path("onboarding", OnboardingView.as_view(), name="onboarding"),
 ]
