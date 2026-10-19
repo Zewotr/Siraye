@@ -21,6 +21,7 @@ import TaskListPage from "../pages/user/TaskListPage";
 import SchedulePage from "../pages/user/SchedulePage";
 import TimerPage from "../pages/user/TimerPage";
 import TrackerPage from "../pages/user/TrackerPage";
+import OnboardingPage from "../pages/public/OnboardingPage";
 
 import AdminRoute from "./AdminRoute";
 import ProtectedRoute from "./ProtectedRoute";
@@ -36,6 +37,7 @@ export default function AppRouter() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
+        <Route element={<OnboardingPage />} path="/onboarding" />
         <Route element={<AppLayout />}>
           <Route element={<Navigate replace to="/dashboard" />} path="/app" />
           <Route element={<DashboardPage />} path="/dashboard" />
