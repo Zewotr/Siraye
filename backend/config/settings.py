@@ -77,17 +77,49 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("POSTGRES_DB", "siraye"),
-        "USER": env("POSTGRES_USER", "postgres"),
-        "PASSWORD": env("POSTGRES_PASSWORD", "postgres"),
-        "HOST": env("POSTGRES_HOST", "localhost"),
-        "PORT": env("POSTGRES_PORT", "5432"),
-        "CONN_MAX_AGE": int(env("POSTGRES_CONN_MAX_AGE", "60")),
+DATABASE_URL = env("DATABASE_URL")
+if DATABASE_URL:
+    try:
+        import dj_database_url
+
+        DATABASES = {
+            "default": dj_database_url.config(
+                default=DATABASE_URL,
+                conn_max_age=int(env("POSTGRES_CONN_MAX_AGE", "60")),
+                ssl_require=env_bool("POSTGRES_SSL_REQUIRE", not DEBUG),
+            )
+        }
+    except ImportError:
+        import urllib.parse as up
+
+        up.uses_netloc.append("postgres")
+        up.uses_netloc.append("postgresql")
+        parsed = up.urlparse(DATABASE_URL)
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": (parsed.path or "").lstrip("/"),
+                "USER": parsed.username or "",
+                "PASSWORD": parsed.password or "",
+                "HOST": parsed.hostname or "",
+                "PORT": str(parsed.port or 5432),
+                "CONN_MAX_AGE": int(env("POSTGRES_CONN_MAX_AGE", "60")),
+            }
+        }
+        if not DEBUG or env_bool("POSTGRES_SSL_REQUIRE", False):
+            DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env("POSTGRES_DB", "siraye"),
+            "USER": env("POSTGRES_USER", "postgres"),
+            "PASSWORD": env("POSTGRES_PASSWORD", "postgres"),
+            "HOST": env("POSTGRES_HOST", "localhost"),
+            "PORT": env("POSTGRES_PORT", "5432"),
+            "CONN_MAX_AGE": int(env("POSTGRES_CONN_MAX_AGE", "60")),
+        }
     }
-}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -104,6 +136,7 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+WHITENOISE_MANIFEST_STRICT = False
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -145,10 +178,25 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000",
+)
 CORS_ALLOW_CREDENTIALS = True
+if env_bool("CORS_ALLOW_ALL_ORIGINS", False):
+    CORS_ALLOW_ALL_ORIGINS = True
 
-CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
+cors_regexes = env_list("CORS_ALLOWED_ORIGIN_REGEXES", "")
+if cors_regexes:
+    CORS_ALLOWED_ORIGIN_REGEXES = cors_regexes
+elif not DEBUG:
+    # Allow Vercel preview and production deployments by default
+    CORS_ALLOWED_ORIGIN_REGEXES = [r"^https:\/\/.*\.vercel\.app$"]
+
+CSRF_TRUSTED_ORIGINS = env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000",
+)
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
@@ -164,12 +212,31 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "noreply@siraye.app")
 
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", "redis://localhost:6379/0")
+REDIS_URL = env("REDIS_URL", "redis://localhost:6379/1")
+redis_options = {
+    "CLIENT_CLASS": "django_redis.client.DefaultClient",
+}
+if REDIS_URL.startswith("rediss://"):
+    redis_options["CONNECTION_POOL_KWARGS"] = {"ssl_cert_reqs": None}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": redis_options,
+        "TIMEOUT": 300,
+    }
+}
+
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", env("REDIS_URL", "redis://localhost:6379/0"))
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+if CELERY_BROKER_URL.startswith("rediss://"):
+    CELERY_REDIS_BACKEND_USE_SSL = {"ssl_cert_reqs": None}
+    CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": None}
 
 CELERY_BEAT_SCHEDULE = {
     "send-task-reminders-every-minute": {
@@ -186,18 +253,7 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-REDIS_URL = env("REDIS_URL", "redis://localhost:6379/1")
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_URL,
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-        "TIMEOUT": 300,
-    }
-}
-
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
