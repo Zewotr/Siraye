@@ -8,6 +8,7 @@ import {
   logout as logoutRequest,
   registerWithCredentials,
 } from "../api/auth";
+import { applyThemeColor } from "../utils/theme";
 import { clearTokens, getRefreshToken, setTokens } from "../utils/tokenStorage";
 
 export const AuthContext = createContext(null);
@@ -26,6 +27,9 @@ export function AuthProvider({ children }) {
     try {
       const profile = await fetchCurrentUser();
       setUser(profile);
+      if (profile?.accent_color) {
+        applyThemeColor(profile.accent_color);
+      }
     } catch {
       await resetSessionData();
       clearTokens();
@@ -45,6 +49,9 @@ export function AuthProvider({ children }) {
       await resetSessionData();
       setTokens({ access: response.access, refresh: response.refresh });
       setUser(response.user);
+      if (response.user?.accent_color) {
+        applyThemeColor(response.user.accent_color);
+      }
       return response;
     },
     [resetSessionData]
