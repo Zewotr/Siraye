@@ -70,8 +70,12 @@ export default function LoginPage({ initialMode = "login" }) {
     try {
       setError("");
       setIsSubmitting(true);
-      await login(identifier.trim(), loginPassword);
-      navigate(redirectTo, { replace: true });
+      const res = await login(identifier.trim(), loginPassword);
+      if (res?.user?.onboarding_completed === false) {
+        navigate("/onboarding", { replace: true });
+      } else {
+        navigate(redirectTo, { replace: true });
+      }
     } catch (err) {
       setError(formatError(err, "Login failed. Please check your credentials."));
     } finally {
@@ -97,7 +101,7 @@ export default function LoginPage({ initialMode = "login" }) {
       setError("");
       setIsSubmitting(true);
       await register(name.trim(), signupEmail.trim().toLowerCase(), signupPassword, confirmPassword);
-      navigate(redirectTo, { replace: true });
+      navigate("/onboarding", { replace: true });
     } catch (err) {
       setError(formatError(err, "Sign up failed. Please check your information."));
     } finally {
@@ -108,8 +112,12 @@ export default function LoginPage({ initialMode = "login" }) {
   async function handleGoogleSuccess(credentialResponse) {
     try {
       setError("");
-      await loginWithGoogle(credentialResponse.credential);
-      navigate(redirectTo, { replace: true });
+      const res = await loginWithGoogle(credentialResponse.credential);
+      if (res?.user?.onboarding_completed === false) {
+        navigate("/onboarding", { replace: true });
+      } else {
+        navigate(redirectTo, { replace: true });
+      }
     } catch (err) {
       setError(formatError(err, "Google sign-in failed."));
     }
@@ -356,11 +364,13 @@ export default function LoginPage({ initialMode = "login" }) {
           {googleConfigured ? (
             <div className="w-full flex justify-center">
               <GoogleLogin
-                onError={() => setError("Google authentication failed.")}
+                onError={() => setError("Google sign-in was cancelled or failed. Please try again.")}
                 onSuccess={handleGoogleSuccess}
+                shape="rectangular"
+                size="large"
                 text={mode === "login" ? "signin_with" : "signup_with"}
                 theme="outline"
-                width="100%"
+                width="360"
               />
             </div>
           ) : (
