@@ -3,6 +3,18 @@
 @tailwind utilities;
 
 :root {
+  --brand-50: 242 249 247;
+  --brand-100: 217 239 234;
+  --brand-200: 178 221 212;
+  --brand-300: 133 199 187;
+  --brand-400: 88 170 157;
+  --brand-500: 61 141 129;
+  --brand-600: 47 112 104;
+  --brand-700: 37 90 84;
+  --brand-800: 30 72 68;
+  --brand-900: 24 58 55;
+  --brand-hex: #255a54;
+
   color: #1e1b4b;
   background-color: #f8f9fc;
   font-synthesis: none;
