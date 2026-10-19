@@ -9,6 +9,7 @@ import NotificationBell from "../components/NotificationBell";
 import TaskDetailPanel from "../components/TaskDetailPanel";
 import { useAuth } from "../hooks/useAuth";
 import { useWorkspace } from "../hooks/useWorkspace";
+import { applyThemeColor } from "../utils/theme";
 
 const primaryNavigation = [
   { label: "Overview", to: "/dashboard", icon: "grid" },
@@ -40,6 +41,11 @@ export default function AppLayout() {
   const [nextTasksOpen, setNextTasksOpen] = useState(false);
   const [detailTaskId, setDetailTaskId] = useState(null);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("siraye:theme") === "dark");
+
+  useEffect(() => {
+    const currentColor = user?.accent_color || activeWorkspace?.color || localStorage.getItem("siraye:color") || "#255A54";
+    applyThemeColor(currentColor);
+  }, [user?.accent_color, activeWorkspace?.color]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -98,44 +104,6 @@ export default function AppLayout() {
           <button className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden" onClick={() => setSidebarOpen(false)} type="button">
             <Icon name="x" size={18} />
           </button>
-        </div>
-
-        <div className="relative mb-5 px-1">
-          <button
-            className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-left transition hover:border-brand-200 hover:bg-brand-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10"
-            onClick={() => setWorkspaceMenuOpen((open) => !open)}
-            type="button"
-          >
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white" style={{ backgroundColor: activeWorkspace?.color || "#255a54" }}>
-              {(activeWorkspace?.name || "S").slice(0, 1).toUpperCase()}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold text-slate-800 dark:text-slate-100">{activeWorkspace?.name || "Your workspace"}</span>
-              <span className="block truncate text-[11px] text-slate-400">{activeWorkspace?.current_role || "Choose workspace"}</span>
-            </span>
-            <Icon className="text-slate-400" name="chevronDown" size={16} />
-          </button>
-          {workspaceMenuOpen ? (
-            <div className="absolute left-1 right-1 top-[calc(100%+6px)] z-50 rounded-xl border border-slate-200 bg-white p-1.5 shadow-float dark:border-slate-700 dark:bg-slate-900">
-              {workspaces.map((workspace) => (
-                <button
-                  className={`flex w-full items-center gap-2 rounded-lg p-2 text-left text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800 ${
-                    workspace.id === activeWorkspace?.id ? "bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300" : "text-slate-600 dark:text-slate-300"
-                  }`}
-                  key={workspace.id}
-                  onClick={() => {
-                    setActiveWorkspace(workspace);
-                    setWorkspaceMenuOpen(false);
-                  }}
-                  type="button"
-                >
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: workspace.color }} />
-                  <span className="truncate">{workspace.name}</span>
-                </button>
-              ))}
-              {workspaces.length === 0 ? <p className="px-2 py-3 text-xs text-slate-500">Create a workspace to begin.</p> : null}
-            </div>
-          ) : null}
         </div>
 
         <button
