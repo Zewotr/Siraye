@@ -79,6 +79,9 @@ ASGI_APPLICATION = "config.asgi.application"
 
 DATABASE_URL = env("DATABASE_URL")
 if DATABASE_URL:
+    is_cloud_db = any(domain in DATABASE_URL.lower() for domain in ["neon.tech", "supabase.co", "pooler.supabase.com", "sslmode=require"])
+    use_ssl = env_bool("POSTGRES_SSL_REQUIRE", is_cloud_db or not DEBUG)
+
     try:
         import dj_database_url
 
@@ -86,7 +89,7 @@ if DATABASE_URL:
             "default": dj_database_url.config(
                 default=DATABASE_URL,
                 conn_max_age=int(env("POSTGRES_CONN_MAX_AGE", "60")),
-                ssl_require=env_bool("POSTGRES_SSL_REQUIRE", not DEBUG),
+                ssl_require=use_ssl,
             )
         }
     except ImportError:
@@ -106,8 +109,12 @@ if DATABASE_URL:
                 "CONN_MAX_AGE": int(env("POSTGRES_CONN_MAX_AGE", "60")),
             }
         }
-        if not DEBUG or env_bool("POSTGRES_SSL_REQUIRE", False):
+        if use_ssl:
             DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
+
+    # Supabase Transaction Pooler (port 6543) or connection poolers require disabling server-side cursors
+    if ":6543" in DATABASE_URL or "pooler.supabase.com" in DATABASE_URL:
+        DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
 else:
     DATABASES = {
         "default": {
@@ -269,6 +276,7 @@ SUPABASE_BACKUP_BUCKET = env("SUPABASE_BACKUP_BUCKET", "siraye-backups")
 
 FRONTEND_URL = env("FRONTEND_URL", "http://localhost:5173")
 GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", "")
+MONGODB_URI = env("MONGODB_URI", "")
 
 LOGGING = {
     "version": 1,
