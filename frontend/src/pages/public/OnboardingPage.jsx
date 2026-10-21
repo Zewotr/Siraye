@@ -392,6 +392,7 @@ export default function OnboardingPage() {
           <div className="flex flex-col-reverse items-center justify-between gap-4 pt-2 sm:flex-row">
             <button
               type="button"
+              data-testid="skip-onboarding-btn"
               onClick={() => navigate("/dashboard", { replace: true })}
               className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
             >
@@ -400,6 +401,7 @@ export default function OnboardingPage() {
 
             <button
               type="button"
+              data-testid="complete-onboarding-btn"
               onClick={handleFinish}
               disabled={isSubmitting}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-700 px-8 py-3.5 text-sm font-bold text-white shadow-xl shadow-brand-700/25 transition hover:bg-brand-800 active:scale-95 disabled:opacity-60"
