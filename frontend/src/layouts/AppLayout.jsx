@@ -193,6 +193,7 @@ export default function AppLayout() {
             </button>
             <div className="relative" ref={userMenuRef}>
               <button
+                data-testid="user-menu-button"
                 className="flex items-center gap-2 rounded-xl p-1.5 transition hover:bg-white dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                 onClick={() => setUserMenuOpen((prev) => !prev)}
                 type="button"
@@ -297,6 +298,7 @@ export default function AppLayout() {
                   <div className="border-t border-slate-100 pt-1.5 dark:border-slate-800/80">
                     <button
                       type="button"
+                      data-testid="sign-out-button"
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
                       onClick={() => {
                         setUserMenuOpen(false);
