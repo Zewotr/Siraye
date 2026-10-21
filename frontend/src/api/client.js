@@ -28,7 +28,7 @@ api.interceptors.response.use(
       }
       try {
         const { data } = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api"}/auth/token/refresh`,
+          `${import.meta.env.VITE_API_BASE_URL || "/api"}/auth/token/refresh`,
           { refresh }
         );
         setTokens({ access: data.access, refresh: data.refresh || refresh });
